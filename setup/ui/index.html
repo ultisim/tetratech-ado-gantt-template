@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ADO Gantt — Setup Wizard</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        background: #0f172a;
+        color: #e2e8f0;
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        padding: 32px 16px;
+    }
+    .wizard {
+        width: 100%;
+        max-width: 720px;
+    }
+    h1 {
+        font-size: 28px;
+        font-weight: 700;
+        margin-bottom: 8px;
+        color: #f8fafc;
+    }
+    .subtitle { color: #94a3b8; margin-bottom: 32px; font-size: 14px; }
+    .step {
+        background: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 12px;
+        padding: 24px 28px;
+        margin-bottom: 16px;
+    }
+    .step.done { border-color: #22c55e; opacity: 0.85; }
+    .step.active { border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.15); }
+    .step.disabled { opacity: 0.4; pointer-events: none; }
+    .step-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 8px;
+    }
+    .step-number {
+        width: 28px; height: 28px;
+        border-radius: 50%;
+        background: #475569;
+        color: white;
+        display: flex; align-items: center; justify-content: center;
+        font-weight: 700; font-size: 13px;
+    }
+    .step.done .step-number { background: #22c55e; }
+    .step.active .step-number { background: #60a5fa; }
+    .step-title { font-size: 17px; font-weight: 600; color: #f8fafc; }
+    .step-desc { color: #94a3b8; font-size: 13px; margin: 4px 0 12px 40px; }
+    .step-body { margin-left: 40px; }
+    label {
+        display: block;
+        font-size: 13px;
+        color: #cbd5e1;
+        margin-bottom: 4px;
+        margin-top: 12px;
+    }
+    input[type="text"], input[type="password"], select {
+        width: 100%;
+        padding: 8px 12px;
+        background: #0f172a;
+        border: 1px solid #475569;
+        border-radius: 6px;
+        color: #f8fafc;
+        font-size: 14px;
+        font-family: inherit;
+    }
+    input:focus, select:focus { outline: none; border-color: #60a5fa; }
+    button {
+        background: #2563eb;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 8px 16px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        margin-top: 16px;
+    }
+    button:hover { background: #1d4ed8; }
+    button:disabled { background: #475569; cursor: not-allowed; }
+    .btn-secondary { background: #475569; }
+    .btn-secondary:hover { background: #64748b; }
+    .status { font-size: 13px; margin-top: 8px; }
+    .status.ok { color: #22c55e; }
+    .status.err { color: #ef4444; }
+    .status.info { color: #94a3b8; }
+    .log-window {
+        background: #0f172a;
+        border: 1px solid #334155;
+        border-radius: 6px;
+        padding: 12px;
+        font-family: 'Consolas', 'Monaco', monospace;
+        font-size: 12px;
+        max-height: 300px;
+        overflow-y: auto;
+        color: #e2e8f0;
+        margin-top: 12px;
+    }
+    .log-line { padding: 2px 0; }
+    .success-panel {
+        background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%);
+        color: white;
+        padding: 32px;
+        border-radius: 12px;
+        margin-top: 24px;
+    }
+    .success-panel h2 { font-size: 22px; margin-bottom: 12px; }
+    .success-panel a { color: white; font-weight: 600; text-decoration: underline; }
+    code {
+        background: #0f172a;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-family: 'Consolas', monospace;
+        font-size: 12px;
+    }
+</style>
+</head>
+<body>
+<div class="wizard">
+    <h1>ADO Gantt — Setup Wizard</h1>
+    <p class="subtitle">Deploy your project's Gantt dashboard to Azure. Takes ~10 minutes end to end.</p>
+
+    <!-- Step 1: Prerequisites -->
+    <div id="step1" class="step active">
+        <div class="step-header">
+            <div class="step-number">1</div>
+            <div class="step-title">Prerequisites</div>
+        </div>
+        <div class="step-desc">Check that Node.js and the Azure CLI are installed.</div>
+        <div class="step-body">
+            <div id="prereq-status"></div>
+            <button id="check-prereqs-btn">Check</button>
+        </div>
+    </div>
+
+    <!-- Step 2: Azure login -->
+    <div id="step2" class="step disabled">
+        <div class="step-header">
+            <div class="step-number">2</div>
+            <div class="step-title">Azure login</div>
+        </div>
+        <div class="step-desc">Sign in and pick the subscription that will own the dashboard resources.</div>
+        <div class="step-body">
+            <button id="az-login-btn">Sign in with Azure</button>
+            <div id="az-login-status" class="status"></div>
+            <label for="subscription-select">Subscription</label>
+            <select id="subscription-select" disabled><option>Sign in first…</option></select>
+            <button id="select-sub-btn" disabled>Use this subscription</button>
+        </div>
+    </div>
+
+    <!-- Step 3: Resource group + region -->
+    <div id="step3" class="step disabled">
+        <div class="step-header">
+            <div class="step-number">3</div>
+            <div class="step-title">Resource group & region</div>
+        </div>
+        <div class="step-desc">Pick an existing resource group or enter a name to create a new one.</div>
+        <div class="step-body">
+            <label for="rg-select">Existing resource group (or type new name below)</label>
+            <select id="rg-select"><option>Loading…</option></select>
+            <label for="rg-name">…or create new:</label>
+            <input type="text" id="rg-name" placeholder="e.g. rg-gantt-my-project">
+            <label for="region-select">Region</label>
+            <select id="region-select"></select>
+            <button id="rg-next-btn">Continue</button>
+        </div>
+    </div>
+
+    <!-- Step 4: ADO + site name -->
+    <div id="step4" class="step disabled">
+        <div class="step-header">
+            <div class="step-number">4</div>
+            <div class="step-title">Azure DevOps connection</div>
+        </div>
+        <div class="step-desc">Enter your ADO details. The site name becomes your default subdomain.</div>
+        <div class="step-body">
+            <label for="site-name">Site name (letters, numbers, hyphens)</label>
+            <input type="text" id="site-name" placeholder="e.g. gantt-my-project">
+            <label for="ado-org">ADO org name</label>
+            <input type="text" id="ado-org" placeholder="e.g. TetraTech (from https://dev.azure.com/<ORG>/)">
+            <label for="ado-project">ADO project name (exact, case-sensitive)</label>
+            <input type="text" id="ado-project" placeholder="e.g. Ri Koh Automation">
+            <label for="ado-pat">Personal Access Token (Work Items: Read, write, & manage)
+                — <a href="#" id="pat-help-link">how to create one</a></label>
+            <input type="password" id="ado-pat" placeholder="Paste PAT here (won't be displayed again)">
+            <div id="pat-help" style="display:none; font-size: 12px; color: #94a3b8; margin-top: 8px;">
+                1. Go to <code>https://dev.azure.com/&lt;YOUR-ORG&gt;/_usersSettings/tokens</code><br>
+                2. Click "+ New Token", give it a name, select "Custom defined"<br>
+                3. Check <strong>Work Items → Read, write, &amp; manage</strong><br>
+                4. Set expiry, click Create, and paste the token above.
+            </div>
+            <label for="admin-secret">Admin secret (optional — enables bulk migration endpoints)</label>
+            <input type="password" id="admin-secret" placeholder="Leave blank to keep admin API disabled">
+            <button id="validate-ado-btn">Validate</button>
+            <div id="ado-status" class="status"></div>
+        </div>
+    </div>
+
+    <!-- Step 5: Deploy -->
+    <div id="step5" class="step disabled">
+        <div class="step-header">
+            <div class="step-number">5</div>
+            <div class="step-title">Deploy</div>
+        </div>
+        <div class="step-desc">Provisions Azure resources and deploys the dashboard. Takes 2-5 min.</div>
+        <div class="step-body">
+            <button id="deploy-btn">Deploy to Azure</button>
+            <div id="deploy-log" class="log-window" style="display:none"></div>
+            <div id="success-panel"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ---- State ----
+    const state = {
+        subscriptionId: null,
+        resourceGroup: null,
+        location: 'eastus2',
+        siteName: null,
+        adoOrg: null,
+        adoProject: null,
+        adoPat: null,
+        adminSecret: '',
+    };
+
+    // ---- Helpers ----
+    function activate(id) {
+        document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+        const el = document.getElementById(id);
+        el.classList.remove('disabled');
+        el.classList.add('active');
+    }
+    function complete(id) {
+        const el = document.getElementById(id);
+        el.classList.remove('active');
+        el.classList.add('done');
+    }
+    async function api(path, body) {
+        const opts = { headers: { 'Content-Type': 'application/json' } };
+        if (body !== undefined) {
+            opts.method = 'POST';
+            opts.body = JSON.stringify(body);
+        }
+        const r = await fetch(`/api/setup/${path}`, opts);
+        if (!r.ok) {
+            const err = await r.json().catch(() => ({ error: r.statusText }));
+            throw new Error(err.error || `HTTP ${r.status}`);
+        }
+        return r.json();
+    }
+
+    // ---- Step 1: Prerequisites ----
+    document.getElementById('check-prereqs-btn').onclick = async () => {
+        const s = document.getElementById('prereq-status');
+        s.innerHTML = '<div class="status info">Checking…</div>';
+        try {
+            const r = await api('check');
+            const items = [
+                { name: 'Node.js', value: r.node, ok: !!r.node, required: true },
+                { name: 'Azure CLI (az)', value: r.az, ok: !!r.az, required: true },
+                { name: 'GitHub CLI (gh)', value: r.gh, ok: !!r.gh, required: false },
+            ];
+            const html = items.map(i => {
+                if (i.ok) return `<div class="status ok">✓ ${i.name}: ${i.value}</div>`;
+                if (i.required) return `<div class="status err">✗ ${i.name}: NOT FOUND (required — install and retry)</div>`;
+                return `<div class="status info">○ ${i.name}: not installed (optional)</div>`;
+            }).join('');
+            s.innerHTML = html;
+            if (items.filter(i => i.required).every(i => i.ok)) {
+                complete('step1');
+                activate('step2');
+            }
+        } catch (err) {
+            s.innerHTML = `<div class="status err">Error: ${err.message}</div>`;
+        }
+    };
+
+    // ---- Step 2: Azure login ----
+    document.getElementById('az-login-btn').onclick = async () => {
+        const s = document.getElementById('az-login-status');
+        s.innerHTML = '<span class="info">A browser tab will open for Azure login…</span>';
+        try {
+            const r = await api('az-login', {});
+            s.innerHTML = `<span class="ok">✓ Signed in. Found ${r.subscriptions.length} subscriptions.</span>`;
+            const sel = document.getElementById('subscription-select');
+            sel.innerHTML = r.subscriptions.map(sub =>
+                `<option value="${sub.id}">${sub.name} (${sub.id})</option>`).join('');
+            sel.disabled = false;
+            document.getElementById('select-sub-btn').disabled = false;
+        } catch (err) {
+            s.innerHTML = `<span class="err">Error: ${err.message}</span>`;
+        }
+    };
+    document.getElementById('select-sub-btn').onclick = async () => {
+        const subscriptionId = document.getElementById('subscription-select').value;
+        try {
+            await api('set-subscription', { subscriptionId });
+            state.subscriptionId = subscriptionId;
+            complete('step2');
+            activate('step3');
+            // Load resource groups + regions
+            const [rgs, regs] = await Promise.all([api('resource-groups'), api('regions')]);
+            const rgSel = document.getElementById('rg-select');
+            rgSel.innerHTML = '<option value="">— create new (fill name below) —</option>' +
+                rgs.groups.map(g => `<option value="${g.name}" data-loc="${g.location}">${g.name} (${g.location})</option>`).join('');
+            const regSel = document.getElementById('region-select');
+            regSel.innerHTML = regs.regions.map(r => `<option value="${r.name}">${r.display}</option>`).join('');
+            regSel.value = 'eastus2';
+        } catch (err) {
+            alert('Failed: ' + err.message);
+        }
+    };
+
+    // ---- Step 3: RG + region ----
+    document.getElementById('rg-next-btn').onclick = async () => {
+        const existing = document.getElementById('rg-select').value;
+        const newName = document.getElementById('rg-name').value.trim();
+        const location = document.getElementById('region-select').value;
+        if (!existing && !newName) return alert('Pick an existing RG or enter a name for a new one.');
+        state.location = location;
+        if (existing) {
+            state.resourceGroup = existing;
+        } else {
+            try {
+                await api('create-resource-group', { name: newName, location });
+                state.resourceGroup = newName;
+            } catch (err) {
+                return alert('Create failed: ' + err.message);
+            }
+        }
+        complete('step3');
+        activate('step4');
+    };
+
+    // ---- Step 4: ADO + validate ----
+    document.getElementById('pat-help-link').onclick = (e) => {
+        e.preventDefault();
+        const el = document.getElementById('pat-help');
+        el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    };
+    document.getElementById('validate-ado-btn').onclick = async () => {
+        const s = document.getElementById('ado-status');
+        state.siteName = document.getElementById('site-name').value.trim();
+        state.adoOrg = document.getElementById('ado-org').value.trim();
+        state.adoProject = document.getElementById('ado-project').value.trim();
+        state.adoPat = document.getElementById('ado-pat').value.trim();
+        state.adminSecret = document.getElementById('admin-secret').value.trim();
+        if (!state.siteName || !state.adoOrg || !state.adoProject || !state.adoPat) {
+            return s.innerHTML = '<span class="err">All fields except admin secret are required.</span>';
+        }
+        if (!/^[a-z0-9-]+$/i.test(state.siteName)) {
+            return s.innerHTML = '<span class="err">Site name must be letters, numbers, hyphens only.</span>';
+        }
+        s.innerHTML = '<span class="info">Validating against ADO…</span>';
+        try {
+            const r = await api('validate-ado', {
+                adoOrg: state.adoOrg,
+                adoProject: state.adoProject,
+                adoPat: state.adoPat,
+            });
+            s.innerHTML = `<span class="ok">✓ Connected to ${state.adoOrg}/${state.adoProject} (${r.itemCount} work items visible).</span>`;
+            complete('step4');
+            activate('step5');
+        } catch (err) {
+            s.innerHTML = `<span class="err">Validation failed: ${err.message}</span>`;
+        }
+    };
+
+    // ---- Step 5: Deploy (SSE stream) ----
+    document.getElementById('deploy-btn').onclick = async () => {
+        const log = document.getElementById('deploy-log');
+        const success = document.getElementById('success-panel');
+        log.style.display = 'block';
+        log.innerHTML = '';
+        document.getElementById('deploy-btn').disabled = true;
+
+        const addLine = (msg, cls = '') => {
+            const line = document.createElement('div');
+            line.className = `log-line ${cls}`;
+            line.textContent = msg;
+            log.appendChild(line);
+            log.scrollTop = log.scrollHeight;
+        };
+
+        try {
+            const resp = await fetch('/api/setup/provision', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(state),
+            });
+            const reader = resp.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const events = buffer.split('\n\n');
+                buffer = events.pop();
+                for (const evt of events) {
+                    if (!evt.trim()) continue;
+                    const eventMatch = evt.match(/^event: (\S+)/m);
+                    const dataMatch = evt.match(/^data: (.+)$/m);
+                    if (!dataMatch) continue;
+                    const data = JSON.parse(dataMatch[1]);
+                    const eventType = eventMatch ? eventMatch[1] : 'message';
+                    if (eventType === 'log') addLine(data.msg);
+                    else if (eventType === 'error') addLine(`ERROR: ${data.message}`, 'err');
+                    else if (eventType === 'done') {
+                        success.innerHTML = `
+                            <div class="success-panel">
+                                <h2>🎉 Deployed successfully</h2>
+                                <p>Your dashboard is live at:</p>
+                                <p style="margin: 12px 0;"><a href="${data.siteUrl}" target="_blank">${data.siteUrl}</a></p>
+                                <p style="font-size: 13px; margin-top: 20px;">
+                                    <strong>Next steps</strong> — see <code>docs/RUNBOOK.md</code> for operational tasks, and
+                                    <code>docs/README.md</code> for a walkthrough of every view. Your Azure resources are in
+                                    resource group <code>${data.resourceGroup}</code>.
+                                </p>
+                            </div>`;
+                    }
+                }
+            }
+        } catch (err) {
+            addLine(`Fatal error: ${err.message}`, 'err');
+            document.getElementById('deploy-btn').disabled = false;
+        }
+    };
+</script>
+</body>
+</html>

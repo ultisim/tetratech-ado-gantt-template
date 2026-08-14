@@ -1,0 +1,20 @@
+node_modules/
+.env
+.env.local
+*.log
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Azure Functions local
+api/local.settings.json
+api/bin/
+api/obj/
+api/.python_packages/
+
+# Bicep build output
+infra/*.json.bak
+
+# Local setup state
+setup/.state.json

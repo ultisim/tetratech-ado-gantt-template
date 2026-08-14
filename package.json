@@ -1,0 +1,20 @@
+{
+  "name": "ado-gantt-template",
+  "version": "1.0.0",
+  "description": "Deploy your own ADO-driven Gantt dashboard for any Azure DevOps project.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "setup": "node setup/server.js",
+    "dev:api": "cd api && func start",
+    "dev:web": "npx swa start public --api-location api --port 4280",
+    "deploy": "cd infra && bash deploy.sh"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "express": "^4.19.2",
+    "open": "^10.1.0"
+  }
+}

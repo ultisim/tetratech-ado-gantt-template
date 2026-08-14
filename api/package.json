@@ -1,0 +1,16 @@
+{
+  "name": "ado-gantt-api",
+  "version": "1.0.0",
+  "description": "Azure Functions API for the ADO-driven Gantt dashboard",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "func start"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@azure/functions": "^4.5.0"
+  }
+}

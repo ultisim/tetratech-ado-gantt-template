@@ -1,0 +1,38 @@
+name: Deploy to Azure Static Web Apps
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+    name: Build and deploy
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install API dependencies
+        working-directory: api
+        run: npm install --production
+
+      - name: Deploy to Azure Static Web Apps
+        id: deploy
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          # Required. See docs/RUNBOOK.md for how to obtain and set this.
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: 'upload'
+          # Location of the frontend static files
+          app_location: 'public'
+          # Location of the Azure Functions API
+          api_location: 'api'
+          # No build step — static HTML + a pre-installed API
+          output_location: ''
+          # Skip the built-in npm build for the app (we don't have one)
+          skip_app_build: true
