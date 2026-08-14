@@ -1,7 +1,7 @@
 {
   "name": "ado-gantt-api",
   "version": "1.0.0",
-  "description": "Azure Functions API for the ADO-driven Gantt dashboard",
+  "description": "Azure Functions API for the multi-project ADO Gantt dashboard",
   "main": "src/index.js",
   "type": "module",
   "scripts": {
@@ -11,6 +11,9 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@azure/functions": "^4.5.0"
+    "@azure/functions": "^4.5.0",
+    "@azure/identity": "^4.4.1",
+    "@azure/keyvault-secrets": "^4.8.0",
+    "@azure/data-tables": "^13.3.0"
   }
 }

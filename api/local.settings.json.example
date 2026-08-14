@@ -3,11 +3,13 @@
   "Values": {
     "AzureWebJobsStorage": "",
     "FUNCTIONS_WORKER_RUNTIME": "node",
-    "ADO_ORG": "YourOrgName",
-    "ADO_PROJECT": "Your Project Name",
-    "ADO_PAT": "your-pat-here",
+
+    "KEYVAULT_URI": "https://<your-vault>.vault.azure.net/",
+    "STORAGE_ACCOUNT_NAME": "<your-storage-account>",
+    "PROJECTS_TABLE_NAME": "projects",
     "CACHE_TTL_S": "300",
-    "ADMIN_SECRET": ""
+
+    "ALLOWED_TENANT_ID": ""
   },
   "Host": {
     "CORS": "*"
