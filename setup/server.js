@@ -1,20 +1,23 @@
-// Local setup wizard. Serves a small web UI at http://localhost:4321/setup
-// that walks the user through:
+// Local setup wizard.
+//
+// Serves a step-by-step UI at http://localhost:3000/setup that provisions the
+// PM's own Azure instance of the dashboard. Flow:
 //   1. Prerequisites check (node, az CLI, gh CLI optional)
 //   2. Azure login → subscription pick
-//   3. Resource group + region pick/create
-//   4. ADO org + project entry (validates against ADO REST)
-//   5. ADO PAT entry (validates)
-//   6. Optional admin secret
-//   7. Provisions Static Web App + Key Vault via Bicep
-//   8. Stores PAT in Key Vault
-//   9. Deploys frontend + Functions via SWA CLI
-//  10. Shows the URL
+//   3. Resource group + region
+//   4. Site name + optional tenant lock
+//   5. Entra ID app registration (creates via `az ad app create` — the PM's own tenant)
+//   6. Provisions SWA + Storage + Key Vault via Bicep
+//   7. Deploys frontend + Functions
+//   8. Assigns the current user as the admin role via SWA role invitation
+//   9. Shows the URL and next steps
+//
+// After first install, PMs add projects through /setup.html inside the deployed app.
+// The local wizard is only run once per install.
 
 import express from 'express';
 import { spawn, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { writeFile, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import open from 'open';
@@ -22,83 +25,73 @@ import open from 'open';
 const execFileAsync = promisify(execFile);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, '..');
-const PORT = 4321;
+const PORT = 3000;
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
 app.use(express.static(resolve(__dirname, 'ui')));
 
 // ---- Helpers ----
-async function run(cmd, args) {
+async function run(cmd, args, opts = {}) {
     try {
-        const { stdout } = await execFileAsync(cmd, args, { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+        const { stdout } = await execFileAsync(cmd, args, {
+            encoding: 'utf8',
+            maxBuffer: 64 * 1024 * 1024,
+            ...opts,
+        });
         return { ok: true, stdout: stdout.trim() };
     } catch (err) {
         return { ok: false, error: err.stderr || err.message };
     }
 }
-
-async function runAz(args) {
-    return run('az', args);
-}
-
-function jsonSafe(s) {
-    try { return JSON.parse(s); } catch { return null; }
-}
+const az = args => run('az', args);
+const jsonSafe = s => { try { return JSON.parse(s); } catch { return null; } };
 
 // ---- Endpoints called by the UI ----
 
-// Prerequisites
 app.get('/api/setup/check', async (_req, res) => {
-    const node = await run('node', ['--version']);
-    const az = await runAz(['--version']);
-    const gh = await run('gh', ['--version']);
+    const [node, azCli, gh] = await Promise.all([
+        run('node', ['--version']),
+        az(['--version']),
+        run('gh', ['--version']),
+    ]);
     res.json({
         node: node.ok ? node.stdout.split('\n')[0] : null,
-        az: az.ok ? az.stdout.split('\n')[0] : null,
+        az: azCli.ok ? azCli.stdout.split('\n')[0] : null,
         gh: gh.ok ? gh.stdout.split('\n')[0] : null,
     });
 });
 
-// Login and list subscriptions
 app.post('/api/setup/az-login', async (_req, res) => {
-    const login = await runAz(['login', '--only-show-errors', '-o', 'json']);
+    const login = await az(['login', '--only-show-errors', '-o', 'json']);
     if (!login.ok) return res.status(500).json({ error: login.error });
     const subs = jsonSafe(login.stdout) || [];
     res.json({ subscriptions: subs.map(s => ({ id: s.id, name: s.name, tenantId: s.tenantId })) });
 });
 
-app.get('/api/setup/subscriptions', async (_req, res) => {
-    const r = await runAz(['account', 'list', '-o', 'json']);
-    if (!r.ok) return res.status(500).json({ error: r.error });
-    const subs = jsonSafe(r.stdout) || [];
-    res.json({ subscriptions: subs.map(s => ({ id: s.id, name: s.name })) });
-});
-
 app.post('/api/setup/set-subscription', async (req, res) => {
-    const { subscriptionId } = req.body;
-    const r = await runAz(['account', 'set', '--subscription', subscriptionId]);
+    const r = await az(['account', 'set', '--subscription', req.body.subscriptionId]);
     if (!r.ok) return res.status(500).json({ error: r.error });
-    res.json({ ok: true });
+    // Also grab tenant id so the UI can offer a "restrict to this tenant" toggle
+    const acct = await az(['account', 'show', '-o', 'json']);
+    const info = jsonSafe(acct.stdout || '{}');
+    res.json({ ok: true, tenantId: info?.tenantId || null, userName: info?.user?.name || null });
 });
 
-// Resource groups
 app.get('/api/setup/resource-groups', async (_req, res) => {
-    const r = await runAz(['group', 'list', '-o', 'json']);
+    const r = await az(['group', 'list', '-o', 'json']);
     if (!r.ok) return res.status(500).json({ error: r.error });
     res.json({ groups: (jsonSafe(r.stdout) || []).map(g => ({ name: g.name, location: g.location })) });
 });
 
 app.post('/api/setup/create-resource-group', async (req, res) => {
     const { name, location } = req.body;
-    const r = await runAz(['group', 'create', '--name', name, '--location', location, '-o', 'json']);
+    const r = await az(['group', 'create', '--name', name, '--location', location, '-o', 'json']);
     if (!r.ok) return res.status(500).json({ error: r.error });
     res.json({ ok: true });
 });
 
-// Regions where Static Web Apps is available
 app.get('/api/setup/regions', (_req, res) => {
-    // SWA is available in a fixed list (as of 2026). Not worth an API call.
     res.json({
         regions: [
             { name: 'eastus2', display: 'East US 2' },
@@ -110,41 +103,12 @@ app.get('/api/setup/regions', (_req, res) => {
     });
 });
 
-// Validate ADO org + project + PAT with a lightweight WIQL call
-app.post('/api/setup/validate-ado', async (req, res) => {
-    const { adoOrg, adoProject, adoPat } = req.body;
-    if (!adoOrg || !adoProject || !adoPat) {
-        return res.status(400).json({ error: 'adoOrg, adoProject, and adoPat all required' });
-    }
-    try {
-        const auth = 'Basic ' + Buffer.from(':' + adoPat).toString('base64');
-        const url = `https://dev.azure.com/${encodeURIComponent(adoOrg)}/${encodeURIComponent(adoProject)}/_apis/wit/wiql?api-version=7.1`;
-        const resp = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Authorization': auth,
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-            },
-            body: JSON.stringify({
-                query: `SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = '${adoProject.replace(/'/g, "''")}'`,
-            }),
-        });
-        if (!resp.ok) {
-            const body = await resp.text();
-            return res.status(400).json({ error: `ADO API returned ${resp.status}: ${body.slice(0, 300)}` });
-        }
-        const data = await resp.json();
-        res.json({ ok: true, itemCount: (data.workItems || []).length });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Provision — the big one. Deploys Bicep + does initial site upload.
-// Streams progress back via SSE so the UI shows what's happening.
+// The big one: provision + deploy. Streams progress via SSE.
 app.post('/api/setup/provision', async (req, res) => {
-    const { subscriptionId, resourceGroup, location, siteName, adoOrg, adoProject, adoPat, adminSecret } = req.body;
+    const {
+        subscriptionId, resourceGroup, location, siteName,
+        aadClientId, aadClientSecret, allowedTenantId,
+    } = req.body;
 
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
@@ -159,76 +123,81 @@ app.post('/api/setup/provision', async (req, res) => {
         send('log', { msg: `Setting subscription ${subscriptionId}…` });
         await execFileAsync('az', ['account', 'set', '--subscription', subscriptionId]);
 
-        send('log', { msg: `Deploying Bicep template to resource group ${resourceGroup}…` });
+        send('log', { msg: `Deploying Bicep to ${resourceGroup}… (this takes 2–4 min)` });
         const bicepPath = resolve(REPO_ROOT, 'infra', 'main.bicep');
-        const args = [
+        const bicep = await execFileAsync('az', [
             'deployment', 'group', 'create',
             '--resource-group', resourceGroup,
             '--template-file', bicepPath,
             '--parameters',
             `siteName=${siteName}`,
             `location=${location}`,
-            `adoOrg=${adoOrg}`,
-            `adoProject=${adoProject}`,
-            `adoPat=${adoPat}`,
-            `adminSecret=${adminSecret || ''}`,
+            `aadClientId=${aadClientId}`,
+            `aadClientSecret=${aadClientSecret}`,
+            `allowedTenantId=${allowedTenantId || ''}`,
             '--output', 'json',
-        ];
-        const bicep = await execFileAsync('az', args, { maxBuffer: 32 * 1024 * 1024 });
+        ], { maxBuffer: 64 * 1024 * 1024 });
         const bicepOut = JSON.parse(bicep.stdout);
-        const siteUrl = bicepOut.properties?.outputs?.siteUrl?.value;
-        send('log', { msg: `Provisioned. Site URL: ${siteUrl}` });
+        const outputs = bicepOut.properties?.outputs || {};
+        const siteUrl = outputs.siteUrl?.value;
+        const kvName = outputs.keyVaultName?.value;
+        const storageName = outputs.storageAccountName?.value;
+        send('log', { msg: `Provisioned. Site: ${siteUrl}, KV: ${kvName}, Storage: ${storageName}` });
 
         send('log', { msg: 'Fetching deployment token…' });
         const tokenResp = await execFileAsync('az', [
             'staticwebapp', 'secrets', 'list',
-            '--name', siteName,
-            '--query', 'properties.apiKey',
-            '-o', 'tsv',
+            '--name', siteName, '--query', 'properties.apiKey', '-o', 'tsv',
         ]);
         const deploymentToken = tokenResp.stdout.trim();
 
-        send('log', { msg: 'Writing public/config.js…' });
-        const configJs = `window.__CONFIG__ = {\n` +
-            `    projectDisplayName: ${JSON.stringify(adoProject)},\n` +
-            `    adoProjectUrl: ${JSON.stringify(`https://dev.azure.com/${adoOrg}/${adoProject}`)},\n` +
-            `};\n`;
-        await writeFile(resolve(REPO_ROOT, 'public', 'config.js'), configJs);
-
-        send('log', { msg: 'Installing API dependencies…' });
+        send('log', { msg: 'Installing API deps…' });
         await execFileAsync('npm', ['install', '--production'], {
             cwd: resolve(REPO_ROOT, 'api'),
             shell: true,
         });
 
-        send('log', { msg: 'Deploying frontend + Functions via SWA CLI (this takes 2-3 min)…' });
+        send('log', { msg: 'Deploying frontend + Functions via SWA CLI…' });
         await execFileAsync('npx', [
             '@azure/static-web-apps-cli', 'deploy', 'public',
             '--api-location', 'api',
             '--deployment-token', deploymentToken,
             '--env', 'production',
-        ], {
-            cwd: REPO_ROOT,
-            shell: true,
-            maxBuffer: 64 * 1024 * 1024,
-        });
+        ], { cwd: REPO_ROOT, shell: true, maxBuffer: 128 * 1024 * 1024 });
 
-        send('log', { msg: 'Verifying deployment…' });
-        // Wait a few seconds, then hit /api/health
-        await new Promise(r => setTimeout(r, 5000));
-        try {
-            const health = await fetch(`${siteUrl}/api/health`);
-            if (health.ok) {
-                const h = await health.json();
-                send('log', { msg: `Health check OK — ${JSON.stringify(h)}` });
-            } else {
-                send('log', { msg: `Health check returned ${health.status} — may still be warming up` });
+        send('log', { msg: 'Inviting current user as admin…' });
+        // Get the current signed-in az user
+        const acct = await execFileAsync('az', ['account', 'show', '-o', 'json']);
+        const userEmail = jsonSafe(acct.stdout)?.user?.name;
+        if (userEmail) {
+            // SWA role invitation via the REST API (there's no first-class CLI verb).
+            // The user will need to accept the invite by visiting the URL. On acceptance,
+            // they get the 'admin' role and can log into /setup.html.
+            const inviteUrl = await execFileAsync('az', [
+                'rest',
+                '--method', 'post',
+                '--uri',
+                `https://management.azure.com/subscriptions/${subscriptionId}/resourceGroups/${resourceGroup}/providers/Microsoft.Web/staticSites/${siteName}/createUserInvitation?api-version=2022-03-01`,
+                '--body', JSON.stringify({
+                    domain: new URL(siteUrl).hostname,
+                    provider: 'aad',
+                    userDetails: userEmail,
+                    roles: 'admin',
+                    numHoursToExpiration: 48,
+                }),
+                '--headers', 'Content-Type=application/json',
+            ]).catch(err => ({ stdout: JSON.stringify({ error: err.message }) }));
+            const inviteObj = jsonSafe(inviteUrl.stdout);
+            if (inviteObj?.invitationUrl) {
+                send('log', { msg: `Admin invite ready — see final step for the accept URL.` });
+                send('done', { siteUrl, siteName, resourceGroup, userEmail, inviteUrl: inviteObj.invitationUrl });
+                res.end();
+                return;
             }
-        } catch (err) {
-            send('log', { msg: `Health check pending (site may still be initializing): ${err.message}` });
+            send('log', { msg: `Admin invite couldn't be created automatically — you'll need to invite yourself via Azure Portal (Static Web App → Role management).` });
         }
 
-        send('done', { siteUrl, siteName, resourceGroup });
+        send('done', { siteUrl, siteName, resourceGroup, userEmail, inviteUrl: null });
         res.end();
     } catch (err) {
         send('error', { message: err.message || String(err) });
@@ -236,7 +205,6 @@ app.post('/api/setup/provision', async (req, res) => {
     }
 });
 
-// Serve the wizard UI as the root
 app.get('/', (_req, res) => res.redirect('/setup/'));
 app.get('/setup', (_req, res) => res.redirect('/setup/'));
 

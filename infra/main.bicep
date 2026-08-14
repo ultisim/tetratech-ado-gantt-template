@@ -1,108 +1,141 @@
-// Provisions the two Azure resources needed to host the Gantt dashboard:
-//   1. Static Web App (Standard SKU — required for Managed Functions + custom domain)
-//   2. Key Vault (stores ADO_PAT and optional ADMIN_SECRET)
+// Provisions the Azure resources for one PM's Gantt instance:
+//   1. Static Web App (Standard tier — required for Managed Functions
+//      + Key Vault references + custom domain)
+//   2. Storage Account (holds the 'projects' Table Storage table)
+//   3. Key Vault (holds per-project PATs + optional per-project admin secrets)
 //
 // Deploy via:
 //   az deployment group create \
 //     --resource-group <rg> \
 //     --template-file main.bicep \
-//     --parameters siteName=<name> adoOrg=<org> adoProject='<project>'
+//     --parameters siteName=<name> aadClientId=<id> aadClientSecret=<sec>
+//
+// Or via the local setup wizard: `npm run setup`
 
-@description('Name for the Static Web App (also becomes the default *.azurestaticapps.net subdomain).')
+@description('Base name for the resources — becomes the SWA default subdomain, storage account, key vault.')
+@minLength(3)
+@maxLength(20)
 param siteName string
 
-@description('Azure region for both resources.')
+@description('Azure region for all resources.')
 param location string = resourceGroup().location
 
-@description('ADO org name (from https://dev.azure.com/<ORG>/).')
-param adoOrg string
+@description('Entra ID client (app registration) id — for SWA sign-in.')
+param aadClientId string
 
-@description('ADO project name (case-sensitive, spaces OK).')
-param adoProject string
+@description('Entra ID client secret. Stored in SWA app settings (opaque).')
+@secure()
+param aadClientSecret string
 
-@description('Cache TTL in seconds for /api/tasks. Default 300.')
+@description('Optional: restrict sign-in to a single Entra tenant id. Empty = any Microsoft account.')
+param allowedTenantId string = ''
+
+@description('Cache TTL in seconds for /api/projects/*/tasks. Default 300.')
 param cacheTtlSeconds string = '300'
 
-@description('Optional admin secret. If empty, /api/admin/* endpoints return 404.')
-@secure()
-param adminSecret string = ''
+// --------------------------------------------------------------------------
+// Storage Account (Table Storage for projects config)
+// --------------------------------------------------------------------------
+resource storage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
+  name: '${toLower(replace(siteName, '-', ''))}sa'
+  location: location
+  sku: { name: 'Standard_LRS' }
+  kind: 'StorageV2'
+  properties: {
+    accessTier: 'Hot'
+    minimumTlsVersion: 'TLS1_2'
+    allowBlobPublicAccess: false
+    allowSharedKeyAccess: false // force Managed Identity access
+  }
+}
 
-@description('The ADO Personal Access Token (Work Items: Read, write, & manage scope). Will be stored in Key Vault.')
-@secure()
-param adoPat string
+// The 'projects' table
+resource tableService 'Microsoft.Storage/storageAccounts/tableServices@2023-05-01' = {
+  parent: storage
+  name: 'default'
+}
+resource projectsTable 'Microsoft.Storage/storageAccounts/tableServices/tables@2023-05-01' = {
+  parent: tableService
+  name: 'projects'
+}
 
 // --------------------------------------------------------------------------
-// Key Vault — holds the ADO PAT (and optionally the admin secret)
+// Key Vault (per-project PATs and admin secrets)
 // --------------------------------------------------------------------------
 resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   name: '${siteName}-kv'
   location: location
   properties: {
-    sku: {
-      family: 'A'
-      name: 'standard'
-    }
+    sku: { family: 'A', name: 'standard' }
     tenantId: subscription().tenantId
-    enableRbacAuthorization: true
+    enableRbacAuthorization: true // RBAC instead of access policies
     enabledForTemplateDeployment: true
     accessPolicies: []
     publicNetworkAccess: 'Enabled'
-  }
-}
-
-resource patSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
-  parent: keyVault
-  name: 'ADO-PAT'
-  properties: {
-    value: adoPat
-  }
-}
-
-resource adminSecretResource 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = if (!empty(adminSecret)) {
-  parent: keyVault
-  name: 'ADMIN-SECRET'
-  properties: {
-    value: adminSecret
+    softDeleteRetentionInDays: 7
   }
 }
 
 // --------------------------------------------------------------------------
-// Static Web App — hosts the frontend + Managed Functions API
+// Static Web App (frontend + Managed Functions API)
 // --------------------------------------------------------------------------
 resource staticWebApp 'Microsoft.Web/staticSites@2023-01-01' = {
   name: siteName
   location: location
-  sku: {
-    name: 'Standard'
-    tier: 'Standard'
-  }
+  sku: { name: 'Standard', tier: 'Standard' }
+  identity: { type: 'SystemAssigned' } // for Key Vault + Storage access
   properties: {
-    // We deploy via GitHub Actions or SWA CLI, not via the built-in repo hookup
-    provider: 'None'
+    provider: 'None' // we deploy via SWA CLI / GitHub Actions, not built-in Git
     stagingEnvironmentPolicy: 'Enabled'
     allowConfigFileUpdates: true
   }
 }
 
-// Grant the SWA's system-assigned identity read access to the Key Vault
-// (Key Vault Secrets User = "get" and "list" on secrets)
-resource swaIdentity 'Microsoft.Web/staticSites@2023-01-01' existing = {
-  name: siteName
-  dependsOn: [staticWebApp]
+// --------------------------------------------------------------------------
+// Role assignments — Managed Identity access
+// --------------------------------------------------------------------------
+// Role IDs are the well-known built-in role definition ids.
+var roleIds = {
+  // Key Vault Secrets Officer — get/list/set/delete secrets
+  keyVaultSecretsOfficer: 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7'
+  // Storage Table Data Contributor — read/write table entities
+  storageTableDataContributor: '0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3'
 }
 
-// App settings — surfaced as env vars to the Functions runtime.
-// The ADO_PAT and ADMIN_SECRET use Key Vault references so the actual secret
-// is never visible in the SWA config.
+resource swaKeyVaultAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(keyVault.id, staticWebApp.id, roleIds.keyVaultSecretsOfficer)
+  scope: keyVault
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleIds.keyVaultSecretsOfficer)
+    principalId: staticWebApp.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+resource swaTableAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storage.id, staticWebApp.id, roleIds.storageTableDataContributor)
+  scope: storage
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleIds.storageTableDataContributor)
+    principalId: staticWebApp.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// --------------------------------------------------------------------------
+// App settings — Functions runtime env vars
+// --------------------------------------------------------------------------
 resource swaConfig 'Microsoft.Web/staticSites/config@2023-01-01' = {
   parent: staticWebApp
   name: 'appsettings'
   properties: {
-    ADO_ORG: adoOrg
-    ADO_PROJECT: adoProject
+    KEYVAULT_URI: keyVault.properties.vaultUri
+    STORAGE_ACCOUNT_NAME: storage.name
+    PROJECTS_TABLE_NAME: 'projects'
     CACHE_TTL_S: cacheTtlSeconds
-    ADO_PAT: '@Microsoft.KeyVault(VaultName=${keyVault.name};SecretName=ADO-PAT)'
-    ADMIN_SECRET: empty(adminSecret) ? '' : '@Microsoft.KeyVault(VaultName=${keyVault.name};SecretName=ADMIN-SECRET)'
+    ALLOWED_TENANT_ID: allowedTenantId
+    AAD_CLIENT_ID: aadClientId
+    AAD_CLIENT_SECRET: aadClientSecret
   }
 }
 
@@ -110,4 +143,7 @@ output siteUrl string = 'https://${staticWebApp.properties.defaultHostname}'
 output siteName string = staticWebApp.name
 output resourceGroupName string = resourceGroup().name
 output keyVaultName string = keyVault.name
-output deploymentToken_hint string = 'Retrieve deployment token via: az staticwebapp secrets list --name ${siteName} --query "properties.apiKey" -o tsv'
+output keyVaultUri string = keyVault.properties.vaultUri
+output storageAccountName string = storage.name
+output managedIdentityPrincipalId string = staticWebApp.identity.principalId
+output deploymentTokenHint string = 'az staticwebapp secrets list --name ${siteName} --query "properties.apiKey" -o tsv'

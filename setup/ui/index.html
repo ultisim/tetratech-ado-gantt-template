@@ -8,125 +8,86 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-        background: #0f172a;
-        color: #e2e8f0;
-        min-height: 100vh;
-        display: flex;
-        justify-content: center;
-        padding: 32px 16px;
+        background: #0f172a; color: #e2e8f0; min-height: 100vh;
+        display: flex; justify-content: center; padding: 32px 16px;
     }
-    .wizard {
-        width: 100%;
-        max-width: 720px;
-    }
-    h1 {
-        font-size: 28px;
-        font-weight: 700;
-        margin-bottom: 8px;
-        color: #f8fafc;
-    }
-    .subtitle { color: #94a3b8; margin-bottom: 32px; font-size: 14px; }
+    .wizard { width: 100%; max-width: 780px; }
+    h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; color: #f8fafc; }
+    .subtitle { color: #94a3b8; margin-bottom: 32px; font-size: 14px; line-height: 1.5; }
     .step {
-        background: #1e293b;
-        border: 1px solid #334155;
-        border-radius: 12px;
-        padding: 24px 28px;
-        margin-bottom: 16px;
+        background: #1e293b; border: 1px solid #334155; border-radius: 12px;
+        padding: 24px 28px; margin-bottom: 16px;
     }
     .step.done { border-color: #22c55e; opacity: 0.85; }
     .step.active { border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.15); }
     .step.disabled { opacity: 0.4; pointer-events: none; }
-    .step-header {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 8px;
-    }
+    .step-header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
     .step-number {
-        width: 28px; height: 28px;
-        border-radius: 50%;
-        background: #475569;
-        color: white;
-        display: flex; align-items: center; justify-content: center;
+        width: 28px; height: 28px; border-radius: 50%;
+        background: #475569; color: white; display: flex;
+        align-items: center; justify-content: center;
         font-weight: 700; font-size: 13px;
     }
     .step.done .step-number { background: #22c55e; }
     .step.active .step-number { background: #60a5fa; }
     .step-title { font-size: 17px; font-weight: 600; color: #f8fafc; }
-    .step-desc { color: #94a3b8; font-size: 13px; margin: 4px 0 12px 40px; }
+    .step-desc { color: #94a3b8; font-size: 13px; margin: 4px 0 12px 40px; line-height: 1.5; }
     .step-body { margin-left: 40px; }
     label {
-        display: block;
-        font-size: 13px;
-        color: #cbd5e1;
-        margin-bottom: 4px;
-        margin-top: 12px;
+        display: block; font-size: 13px; color: #cbd5e1;
+        margin-bottom: 4px; margin-top: 12px;
     }
+    label small { color: #64748b; font-weight: 400; margin-left: 6px; }
     input[type="text"], input[type="password"], select {
-        width: 100%;
-        padding: 8px 12px;
-        background: #0f172a;
-        border: 1px solid #475569;
-        border-radius: 6px;
-        color: #f8fafc;
-        font-size: 14px;
-        font-family: inherit;
+        width: 100%; padding: 8px 12px; background: #0f172a;
+        border: 1px solid #475569; border-radius: 6px;
+        color: #f8fafc; font-size: 14px; font-family: inherit;
     }
     input:focus, select:focus { outline: none; border-color: #60a5fa; }
     button {
-        background: #2563eb;
-        color: white;
-        border: none;
-        border-radius: 6px;
-        padding: 8px 16px;
-        font-size: 14px;
-        font-weight: 500;
-        cursor: pointer;
-        margin-top: 16px;
+        background: #2563eb; color: white; border: none;
+        border-radius: 6px; padding: 8px 16px; font-size: 14px;
+        font-weight: 500; cursor: pointer; margin-top: 16px;
     }
     button:hover { background: #1d4ed8; }
     button:disabled { background: #475569; cursor: not-allowed; }
-    .btn-secondary { background: #475569; }
-    .btn-secondary:hover { background: #64748b; }
     .status { font-size: 13px; margin-top: 8px; }
     .status.ok { color: #22c55e; }
     .status.err { color: #ef4444; }
     .status.info { color: #94a3b8; }
     .log-window {
-        background: #0f172a;
-        border: 1px solid #334155;
-        border-radius: 6px;
-        padding: 12px;
-        font-family: 'Consolas', 'Monaco', monospace;
-        font-size: 12px;
-        max-height: 300px;
-        overflow-y: auto;
-        color: #e2e8f0;
-        margin-top: 12px;
+        background: #0f172a; border: 1px solid #334155; border-radius: 6px;
+        padding: 12px; font-family: 'Consolas', 'Monaco', monospace;
+        font-size: 12px; max-height: 320px; overflow-y: auto;
+        color: #e2e8f0; margin-top: 12px;
     }
     .log-line { padding: 2px 0; }
     .success-panel {
         background: linear-gradient(135deg, #16a34a 0%, #22c55e 100%);
-        color: white;
-        padding: 32px;
-        border-radius: 12px;
-        margin-top: 24px;
+        color: white; padding: 32px; border-radius: 12px; margin-top: 24px;
     }
     .success-panel h2 { font-size: 22px; margin-bottom: 12px; }
     .success-panel a { color: white; font-weight: 600; text-decoration: underline; }
-    code {
-        background: #0f172a;
-        padding: 2px 6px;
-        border-radius: 3px;
-        font-family: 'Consolas', monospace;
-        font-size: 12px;
+    .success-panel code { background: rgba(0,0,0,0.25); padding: 2px 6px; border-radius: 3px; }
+    code { background: #0f172a; padding: 2px 6px; border-radius: 3px;
+        font-family: 'Consolas', monospace; font-size: 12px; }
+    .callout {
+        background: rgba(96, 165, 250, 0.1); border-left: 3px solid #60a5fa;
+        padding: 10px 14px; font-size: 12px; color: #cbd5e1;
+        margin-top: 12px; border-radius: 4px; line-height: 1.6;
     }
+    .row { display: flex; gap: 12px; }
+    .row > * { flex: 1; }
 </style>
 </head>
 <body>
 <div class="wizard">
     <h1>ADO Gantt — Setup Wizard</h1>
-    <p class="subtitle">Deploy your project's Gantt dashboard to Azure. Takes ~10 minutes end to end.</p>
+    <p class="subtitle">
+        Deploy your multi-project Gantt dashboard to Azure. You'll host it in your own Azure subscription,
+        signed in with Entra ID. After the initial provision (~10 min), you add ADO projects through the
+        deployed app itself — no more running this wizard.
+    </p>
 
     <!-- Step 1: Prerequisites -->
     <div id="step1" class="step active">
@@ -165,53 +126,66 @@
         </div>
         <div class="step-desc">Pick an existing resource group or enter a name to create a new one.</div>
         <div class="step-body">
-            <label for="rg-select">Existing resource group (or type new name below)</label>
+            <label for="rg-select">Existing resource group</label>
             <select id="rg-select"><option>Loading…</option></select>
-            <label for="rg-name">…or create new:</label>
-            <input type="text" id="rg-name" placeholder="e.g. rg-gantt-my-project">
+            <label for="rg-name">…or create new</label>
+            <input type="text" id="rg-name" placeholder="e.g. rg-gantt-dashboard">
             <label for="region-select">Region</label>
             <select id="region-select"></select>
             <button id="rg-next-btn">Continue</button>
         </div>
     </div>
 
-    <!-- Step 4: ADO + site name -->
+    <!-- Step 4: Site name + tenant policy -->
     <div id="step4" class="step disabled">
         <div class="step-header">
             <div class="step-number">4</div>
-            <div class="step-title">Azure DevOps connection</div>
+            <div class="step-title">Site name &amp; sign-in policy</div>
         </div>
-        <div class="step-desc">Enter your ADO details. The site name becomes your default subdomain.</div>
+        <div class="step-desc">The site name becomes your Azure subdomain (`<name>.azurestaticapps.net`) and also names the storage + Key Vault. Sign-in policy lets you restrict who can sign in with Entra.</div>
         <div class="step-body">
-            <label for="site-name">Site name (letters, numbers, hyphens)</label>
-            <input type="text" id="site-name" placeholder="e.g. gantt-my-project">
-            <label for="ado-org">ADO org name</label>
-            <input type="text" id="ado-org" placeholder="e.g. TetraTech (from https://dev.azure.com/<ORG>/)">
-            <label for="ado-project">ADO project name (exact, case-sensitive)</label>
-            <input type="text" id="ado-project" placeholder="e.g. Ri Koh Automation">
-            <label for="ado-pat">Personal Access Token (Work Items: Read, write, & manage)
-                — <a href="#" id="pat-help-link">how to create one</a></label>
-            <input type="password" id="ado-pat" placeholder="Paste PAT here (won't be displayed again)">
-            <div id="pat-help" style="display:none; font-size: 12px; color: #94a3b8; margin-top: 8px;">
-                1. Go to <code>https://dev.azure.com/&lt;YOUR-ORG&gt;/_usersSettings/tokens</code><br>
-                2. Click "+ New Token", give it a name, select "Custom defined"<br>
-                3. Check <strong>Work Items → Read, write, &amp; manage</strong><br>
-                4. Set expiry, click Create, and paste the token above.
-            </div>
-            <label for="admin-secret">Admin secret (optional — enables bulk migration endpoints)</label>
-            <input type="password" id="admin-secret" placeholder="Leave blank to keep admin API disabled">
-            <button id="validate-ado-btn">Validate</button>
-            <div id="ado-status" class="status"></div>
+            <label for="site-name">Site name <small>3–20 chars, letters/numbers/hyphens</small></label>
+            <input type="text" id="site-name" placeholder="e.g. gantt-tetratech">
+            <label>
+                <input type="checkbox" id="lock-tenant" style="width:auto;margin-right:6px"> Restrict sign-in to my Entra tenant only
+                <br><small style="margin-left:22px">Recommended for corporate use. Unchecked = any Microsoft account can sign in (they'd still need to be granted a role).</small>
+            </label>
+            <button id="site-next-btn">Continue</button>
         </div>
     </div>
 
-    <!-- Step 5: Deploy -->
+    <!-- Step 5: Entra app registration -->
     <div id="step5" class="step disabled">
         <div class="step-header">
             <div class="step-number">5</div>
-            <div class="step-title">Deploy</div>
+            <div class="step-title">Entra ID app registration</div>
         </div>
-        <div class="step-desc">Provisions Azure resources and deploys the dashboard. Takes 2-5 min.</div>
+        <div class="step-desc">Static Web Apps needs an Entra app registration to authenticate users. Follow the two commands below in your terminal, then paste the client id and secret here.</div>
+        <div class="step-body">
+            <div class="callout">
+                <strong>1.</strong> Create the app registration:
+                <pre style="margin:8px 0;padding:8px 12px;background:#0f172a;overflow-x:auto"><code id="cmd-create-app">az ad app create --display-name "&lt;siteName&gt; Auth" --sign-in-audience AzureADMyOrg --web-redirect-uris "https://&lt;siteName&gt;.azurestaticapps.net/.auth/login/aad/callback"</code></pre>
+                Copy the <code>appId</code> from the output — that's your <strong>client id</strong>.
+                <br><br>
+                <strong>2.</strong> Create a client secret (replace <code>&lt;appId&gt;</code> with the value from step 1):
+                <pre style="margin:8px 0;padding:8px 12px;background:#0f172a;overflow-x:auto"><code>az ad app credential reset --id &lt;appId&gt; --years 2</code></pre>
+                Copy the <code>password</code> value — that's your <strong>client secret</strong>. You won't see it again.
+            </div>
+            <label for="aad-client-id">Entra Client ID (appId)</label>
+            <input type="text" id="aad-client-id" placeholder="00000000-0000-0000-0000-000000000000">
+            <label for="aad-client-secret">Entra Client Secret</label>
+            <input type="password" id="aad-client-secret">
+            <button id="entra-next-btn">Continue</button>
+        </div>
+    </div>
+
+    <!-- Step 6: Provision + deploy -->
+    <div id="step6" class="step disabled">
+        <div class="step-header">
+            <div class="step-number">6</div>
+            <div class="step-title">Provision &amp; deploy</div>
+        </div>
+        <div class="step-desc">Creates the Static Web App, Key Vault, Storage Account, and role assignments, then deploys the app.</div>
         <div class="step-body">
             <button id="deploy-btn">Deploy to Azure</button>
             <div id="deploy-log" class="log-window" style="display:none"></div>
@@ -221,16 +195,15 @@
 </div>
 
 <script>
-    // ---- State ----
     const state = {
         subscriptionId: null,
+        tenantId: null,
         resourceGroup: null,
         location: 'eastus2',
         siteName: null,
-        adoOrg: null,
-        adoProject: null,
-        adoPat: null,
-        adminSecret: '',
+        lockTenant: false,
+        aadClientId: null,
+        aadClientSecret: null,
     };
 
     // ---- Helpers ----
@@ -259,7 +232,7 @@
         return r.json();
     }
 
-    // ---- Step 1: Prerequisites ----
+    // ---- Step 1 ----
     document.getElementById('check-prereqs-btn').onclick = async () => {
         const s = document.getElementById('prereq-status');
         s.innerHTML = '<div class="status info">Checking…</div>';
@@ -270,12 +243,11 @@
                 { name: 'Azure CLI (az)', value: r.az, ok: !!r.az, required: true },
                 { name: 'GitHub CLI (gh)', value: r.gh, ok: !!r.gh, required: false },
             ];
-            const html = items.map(i => {
+            s.innerHTML = items.map(i => {
                 if (i.ok) return `<div class="status ok">✓ ${i.name}: ${i.value}</div>`;
-                if (i.required) return `<div class="status err">✗ ${i.name}: NOT FOUND (required — install and retry)</div>`;
+                if (i.required) return `<div class="status err">✗ ${i.name}: NOT FOUND (required)</div>`;
                 return `<div class="status info">○ ${i.name}: not installed (optional)</div>`;
             }).join('');
-            s.innerHTML = html;
             if (items.filter(i => i.required).every(i => i.ok)) {
                 complete('step1');
                 activate('step2');
@@ -285,16 +257,16 @@
         }
     };
 
-    // ---- Step 2: Azure login ----
+    // ---- Step 2 ----
     document.getElementById('az-login-btn').onclick = async () => {
         const s = document.getElementById('az-login-status');
-        s.innerHTML = '<span class="info">A browser tab will open for Azure login…</span>';
+        s.innerHTML = '<span class="info">A browser tab will open for Azure sign-in…</span>';
         try {
             const r = await api('az-login', {});
-            s.innerHTML = `<span class="ok">✓ Signed in. Found ${r.subscriptions.length} subscriptions.</span>`;
+            s.innerHTML = `<span class="ok">✓ Signed in. ${r.subscriptions.length} subscription(s) available.</span>`;
             const sel = document.getElementById('subscription-select');
             sel.innerHTML = r.subscriptions.map(sub =>
-                `<option value="${sub.id}">${sub.name} (${sub.id})</option>`).join('');
+                `<option value="${sub.id}" data-tenant="${sub.tenantId}">${sub.name} (${sub.id.slice(0,8)}…)</option>`).join('');
             sel.disabled = false;
             document.getElementById('select-sub-btn').disabled = false;
         } catch (err) {
@@ -302,17 +274,18 @@
         }
     };
     document.getElementById('select-sub-btn').onclick = async () => {
-        const subscriptionId = document.getElementById('subscription-select').value;
+        const sel = document.getElementById('subscription-select');
+        const opt = sel.selectedOptions[0];
         try {
-            await api('set-subscription', { subscriptionId });
-            state.subscriptionId = subscriptionId;
+            const r = await api('set-subscription', { subscriptionId: opt.value });
+            state.subscriptionId = opt.value;
+            state.tenantId = r.tenantId || opt.dataset.tenant;
             complete('step2');
             activate('step3');
-            // Load resource groups + regions
             const [rgs, regs] = await Promise.all([api('resource-groups'), api('regions')]);
             const rgSel = document.getElementById('rg-select');
             rgSel.innerHTML = '<option value="">— create new (fill name below) —</option>' +
-                rgs.groups.map(g => `<option value="${g.name}" data-loc="${g.location}">${g.name} (${g.location})</option>`).join('');
+                rgs.groups.map(g => `<option value="${g.name}">${g.name} (${g.location})</option>`).join('');
             const regSel = document.getElementById('region-select');
             regSel.innerHTML = regs.regions.map(r => `<option value="${r.name}">${r.display}</option>`).join('');
             regSel.value = 'eastus2';
@@ -321,7 +294,7 @@
         }
     };
 
-    // ---- Step 3: RG + region ----
+    // ---- Step 3 ----
     document.getElementById('rg-next-btn').onclick = async () => {
         const existing = document.getElementById('rg-select').value;
         const newName = document.getElementById('rg-name').value.trim();
@@ -342,41 +315,36 @@
         activate('step4');
     };
 
-    // ---- Step 4: ADO + validate ----
-    document.getElementById('pat-help-link').onclick = (e) => {
-        e.preventDefault();
-        const el = document.getElementById('pat-help');
-        el.style.display = el.style.display === 'none' ? 'block' : 'none';
-    };
-    document.getElementById('validate-ado-btn').onclick = async () => {
-        const s = document.getElementById('ado-status');
-        state.siteName = document.getElementById('site-name').value.trim();
-        state.adoOrg = document.getElementById('ado-org').value.trim();
-        state.adoProject = document.getElementById('ado-project').value.trim();
-        state.adoPat = document.getElementById('ado-pat').value.trim();
-        state.adminSecret = document.getElementById('admin-secret').value.trim();
-        if (!state.siteName || !state.adoOrg || !state.adoProject || !state.adoPat) {
-            return s.innerHTML = '<span class="err">All fields except admin secret are required.</span>';
+    // ---- Step 4 ----
+    document.getElementById('site-next-btn').onclick = () => {
+        const siteName = document.getElementById('site-name').value.trim();
+        if (!/^[a-z0-9-]{3,20}$/i.test(siteName)) {
+            return alert('Site name must be 3–20 chars, letters/numbers/hyphens only.');
         }
-        if (!/^[a-z0-9-]+$/i.test(state.siteName)) {
-            return s.innerHTML = '<span class="err">Site name must be letters, numbers, hyphens only.</span>';
-        }
-        s.innerHTML = '<span class="info">Validating against ADO…</span>';
-        try {
-            const r = await api('validate-ado', {
-                adoOrg: state.adoOrg,
-                adoProject: state.adoProject,
-                adoPat: state.adoPat,
-            });
-            s.innerHTML = `<span class="ok">✓ Connected to ${state.adoOrg}/${state.adoProject} (${r.itemCount} work items visible).</span>`;
-            complete('step4');
-            activate('step5');
-        } catch (err) {
-            s.innerHTML = `<span class="err">Validation failed: ${err.message}</span>`;
-        }
+        state.siteName = siteName;
+        state.lockTenant = document.getElementById('lock-tenant').checked;
+        // Inject the site name into the app-registration command hint
+        document.getElementById('cmd-create-app').textContent =
+            `az ad app create --display-name "${siteName} Auth" --sign-in-audience AzureADMyOrg --web-redirect-uris "https://${siteName}.azurestaticapps.net/.auth/login/aad/callback"`;
+        complete('step4');
+        activate('step5');
     };
 
-    // ---- Step 5: Deploy (SSE stream) ----
+    // ---- Step 5 ----
+    document.getElementById('entra-next-btn').onclick = () => {
+        const cid = document.getElementById('aad-client-id').value.trim();
+        const sec = document.getElementById('aad-client-secret').value;
+        if (!/^[0-9a-f-]{36}$/i.test(cid)) {
+            return alert('Client ID should be a GUID (from the appId field of the app registration output).');
+        }
+        if (!sec) return alert('Client secret required.');
+        state.aadClientId = cid;
+        state.aadClientSecret = sec;
+        complete('step5');
+        activate('step6');
+    };
+
+    // ---- Step 6 ----
     document.getElementById('deploy-btn').onclick = async () => {
         const log = document.getElementById('deploy-log');
         const success = document.getElementById('success-panel');
@@ -392,11 +360,21 @@
             log.scrollTop = log.scrollHeight;
         };
 
+        const payload = {
+            subscriptionId: state.subscriptionId,
+            resourceGroup: state.resourceGroup,
+            location: state.location,
+            siteName: state.siteName,
+            aadClientId: state.aadClientId,
+            aadClientSecret: state.aadClientSecret,
+            allowedTenantId: state.lockTenant ? state.tenantId : '',
+        };
+
         try {
             const resp = await fetch('/api/setup/provision', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(state),
+                body: JSON.stringify(payload),
             });
             const reader = resp.body.getReader();
             const decoder = new TextDecoder();
@@ -417,15 +395,21 @@
                     if (eventType === 'log') addLine(data.msg);
                     else if (eventType === 'error') addLine(`ERROR: ${data.message}`, 'err');
                     else if (eventType === 'done') {
+                        const inviteBlock = data.inviteUrl
+                            ? `<p style="margin-top:16px"><strong>Accept your admin invite:</strong><br>
+                                <a href="${data.inviteUrl}" target="_blank" style="word-break:break-all">${data.inviteUrl}</a>
+                                <br><small style="opacity:0.85">Expires in 48 hours. After accepting, you can sign into <code>${data.siteUrl}/setup.html</code> to add projects.</small></p>`
+                            : `<p style="margin-top:16px"><strong>Next:</strong> Grant yourself admin access via Azure Portal:
+                                Static Web App → Role management → Invite → email <code>${data.userEmail || 'your email'}</code>, role <code>admin</code>.</p>`;
                         success.innerHTML = `
                             <div class="success-panel">
                                 <h2>🎉 Deployed successfully</h2>
-                                <p>Your dashboard is live at:</p>
-                                <p style="margin: 12px 0;"><a href="${data.siteUrl}" target="_blank">${data.siteUrl}</a></p>
+                                <p>Your dashboard is live at:<br>
+                                <a href="${data.siteUrl}" target="_blank">${data.siteUrl}</a></p>
+                                ${inviteBlock}
                                 <p style="font-size: 13px; margin-top: 20px;">
-                                    <strong>Next steps</strong> — see <code>docs/RUNBOOK.md</code> for operational tasks, and
-                                    <code>docs/README.md</code> for a walkthrough of every view. Your Azure resources are in
-                                    resource group <code>${data.resourceGroup}</code>.
+                                    <strong>Once you're an admin:</strong> visit <code>${data.siteUrl}/setup.html</code>
+                                    to add your first ADO project. See <code>docs/RUNBOOK.md</code> for everything else.
                                 </p>
                             </div>`;
                     }
