@@ -1,18 +1,39 @@
 {
+  "$schema": "https://json.schemastore.org/staticwebapp.config.json",
   "routes": [
-    {
-      "route": "/api/*",
-      "allowedRoles": ["anonymous"]
-    }
+    { "route": "/api/health",     "allowedRoles": ["anonymous", "authenticated"] },
+    { "route": "/api/me",         "allowedRoles": ["anonymous", "authenticated"] },
+    { "route": "/api/projects",                          "methods": ["GET"],     "allowedRoles": ["authenticated"] },
+    { "route": "/api/projects",                          "methods": ["POST"],    "allowedRoles": ["admin"] },
+    { "route": "/api/projects/*",                        "methods": ["PUT","DELETE"], "allowedRoles": ["admin"] },
+    { "route": "/api/projects/*/tasks",                  "allowedRoles": ["authenticated"] },
+    { "route": "/api/projects/*/sprint/*",               "allowedRoles": ["authenticated"] },
+    { "route": "/api/projects/*/admin/*",                "allowedRoles": ["admin"] },
+
+    { "route": "/setup.html",     "allowedRoles": ["admin"] },
+    { "route": "/*",              "allowedRoles": ["authenticated"] }
   ],
+  "responseOverrides": {
+    "401": { "redirect": "/.auth/login/aad", "statusCode": 302 },
+    "403": { "rewrite": "/403.html", "statusCode": 403 }
+  },
+  "auth": {
+    "identityProviders": {
+      "azureActiveDirectory": {
+        "registration": {
+          "openIdIssuer": "https://login.microsoftonline.com/common/v2.0",
+          "clientIdSettingName": "AAD_CLIENT_ID",
+          "clientSecretSettingName": "AAD_CLIENT_SECRET"
+        }
+      }
+    }
+  },
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": ["/api/*", "*.{css,js,png,jpg,svg,ico}"]
+    "exclude": ["/api/*", "/.auth/*", "*.{css,js,png,jpg,svg,ico}"]
   },
   "globalHeaders": {
-    "Cache-Control": "no-cache"
-  },
-  "mimeTypes": {
-    ".json": "application/json"
+    "Cache-Control": "no-cache",
+    "X-Content-Type-Options": "nosniff"
   }
 }

@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manage projects — ADO Gantt</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        background: #0f172a;
+        color: #e2e8f0;
+        min-height: 100vh;
+    }
+    header {
+        background: #1e293b;
+        border-bottom: 1px solid #334155;
+        padding: 16px 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    header h1 { font-size: 20px; color: #f8fafc; }
+    header a { color: #60a5fa; text-decoration: none; font-size: 14px; }
+    header a:hover { text-decoration: underline; }
+    main { max-width: 900px; margin: 32px auto; padding: 0 24px; }
+    .panel {
+        background: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 12px;
+        padding: 24px;
+        margin-bottom: 20px;
+    }
+    .panel h2 {
+        font-size: 18px;
+        color: #f8fafc;
+        margin-bottom: 12px;
+    }
+    .panel p.desc { color: #94a3b8; font-size: 13px; margin-bottom: 20px; line-height: 1.5; }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    th, td {
+        text-align: left;
+        padding: 12px 8px;
+        border-bottom: 1px solid #334155;
+        font-size: 14px;
+    }
+    th { color: #94a3b8; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+    td { color: #e2e8f0; }
+    td.project-name { font-weight: 600; }
+    td.project-slug { color: #94a3b8; font-family: 'Consolas', monospace; font-size: 12px; }
+    .badge {
+        display: inline-block;
+        font-size: 11px;
+        padding: 2px 8px;
+        border-radius: 10px;
+        background: rgba(96, 165, 250, 0.15);
+        color: #60a5fa;
+        margin-left: 6px;
+        font-weight: 600;
+    }
+    label {
+        display: block;
+        font-size: 13px;
+        color: #cbd5e1;
+        margin: 14px 0 4px;
+        font-weight: 500;
+    }
+    label small { color: #64748b; font-weight: 400; margin-left: 6px; }
+    input[type="text"], input[type="password"] {
+        width: 100%;
+        padding: 8px 12px;
+        background: #0f172a;
+        border: 1px solid #475569;
+        border-radius: 6px;
+        color: #f8fafc;
+        font-size: 14px;
+        font-family: inherit;
+    }
+    input:focus { outline: none; border-color: #60a5fa; }
+    input:read-only { background: #0a1120; color: #64748b; }
+    .row { display: flex; gap: 12px; }
+    .row > * { flex: 1; }
+    button {
+        background: #2563eb;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 8px 16px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        margin-top: 16px;
+    }
+    button:hover { background: #1d4ed8; }
+    button:disabled { background: #475569; cursor: not-allowed; }
+    button.danger { background: #dc2626; }
+    button.danger:hover { background: #b91c1c; }
+    button.link { background: none; color: #60a5fa; padding: 4px; margin: 0; font-size: 13px; }
+    button.link:hover { text-decoration: underline; background: none; }
+    .status { font-size: 13px; margin-top: 12px; }
+    .status.ok { color: #22c55e; }
+    .status.err { color: #ef4444; }
+    .status.info { color: #94a3b8; }
+    dialog {
+        background: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 12px;
+        color: #e2e8f0;
+        max-width: 640px;
+        width: 90%;
+        padding: 28px;
+    }
+    dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+    dialog h2 { margin-bottom: 8px; }
+    dialog .dialog-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+    .empty {
+        text-align: center;
+        padding: 40px;
+        color: #64748b;
+    }
+</style>
+</head>
+<body>
+<header>
+    <h1>⚙ Project management</h1>
+    <div>
+        <span id="userBadge" style="color:#94a3b8;font-size:13px;margin-right:16px"></span>
+        <a href="/">← Back to dashboard</a>
+    </div>
+</header>
+
+<main>
+    <div class="panel">
+        <h2>Projects</h2>
+        <p class="desc">Each project below appears in the header dropdown of the main dashboard. All authenticated users can view every project. Only admins can add, edit, or remove projects.</p>
+        <div id="projectsTable"></div>
+        <button id="addProjectBtn">+ Add a project</button>
+    </div>
+
+    <div class="panel">
+        <h2>Access</h2>
+        <p class="desc">To invite another user or promote them to admin, use the Static Web Apps role invitations in the Azure Portal (Overview → Role management → Invite). Anyone in your Entra tenant can sign in and view projects; only accounts with the <code>admin</code> role can manage them.</p>
+        <p style="margin-top:8px;font-size:13px;color:#64748b">Current admins are tracked by Azure Static Web Apps, not by this app.</p>
+    </div>
+</main>
+
+<!-- Add/edit project dialog -->
+<dialog id="projectDialog">
+    <h2 id="dialogTitle">Add project</h2>
+    <p class="desc" id="dialogDesc">Enter the ADO org, project name, and a Personal Access Token with Work Items: Read, write, &amp; manage scope. The PAT is validated with a smoke call before it's stored in Key Vault.</p>
+    <form id="projectForm">
+        <label for="fld-id">Project id <small>kebab-case, becomes the URL slug — cannot change after creation</small></label>
+        <input type="text" id="fld-id" required pattern="[a-z0-9-]+" placeholder="e.g. force-account">
+
+        <div class="row">
+            <div>
+                <label for="fld-displayName">Display name</label>
+                <input type="text" id="fld-displayName" placeholder="e.g. Force Account Automation">
+            </div>
+            <div>
+                <label for="fld-adoOrg">ADO org</label>
+                <input type="text" id="fld-adoOrg" required placeholder="e.g. TetraTech">
+            </div>
+        </div>
+
+        <label for="fld-adoProject">ADO project name <small>exact, case-sensitive</small></label>
+        <input type="text" id="fld-adoProject" required placeholder="e.g. Force Account Automation">
+
+        <label for="fld-pat">Personal Access Token <small><a href="#" id="patHelpLink" style="color:#60a5fa">how to create</a></small></label>
+        <input type="password" id="fld-pat" placeholder="Leave blank on edit to keep existing">
+        <div id="patHelp" style="display:none;font-size:12px;color:#94a3b8;margin-top:6px;padding:8px 12px;background:#0f172a;border-radius:4px">
+            1. Go to <code>https://dev.azure.com/&lt;YOUR-ORG&gt;/_usersSettings/tokens</code><br>
+            2. Click "+ New Token" → give it a name → select "Custom defined"<br>
+            3. Check <strong>Work Items → Read, write, &amp; manage</strong><br>
+            4. Copy the token and paste it here.
+        </div>
+
+        <label for="fld-adminSecret">Admin secret <small>optional — enables bulk migration endpoints (see RUNBOOK)</small></label>
+        <input type="password" id="fld-adminSecret" placeholder="Leave blank to disable admin API for this project">
+
+        <div id="dialogStatus" class="status"></div>
+
+        <div class="dialog-actions">
+            <button type="button" class="link" onclick="closeDialog()">Cancel</button>
+            <button type="submit" id="saveBtn">Save</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- Confirm delete dialog -->
+<dialog id="deleteDialog">
+    <h2>Remove project?</h2>
+    <p class="desc">This deletes the project row from Table Storage and soft-deletes its PAT and admin secret from Key Vault. The ADO project itself is not touched.</p>
+    <p style="margin-top:8px" id="deleteTarget"></p>
+    <div class="dialog-actions">
+        <button type="button" class="link" onclick="document.getElementById('deleteDialog').close()">Cancel</button>
+        <button type="button" class="danger" id="confirmDeleteBtn">Yes, remove</button>
+    </div>
+</dialog>
+
+<script>
+    let projects = [];
+    let editingId = null;
+
+    // ---- Boot ----
+    (async function boot() {
+        const me = await fetch('/api/me').then(r => r.json());
+        if (!me.authenticated) { location.href = '/.auth/login/aad'; return; }
+        if (!me.isAdmin) { location.href = '/403.html'; return; }
+        document.getElementById('userBadge').textContent = me.name;
+        await refreshProjects();
+    })();
+
+    async function refreshProjects() {
+        const resp = await fetch('/api/projects');
+        if (!resp.ok) {
+            document.getElementById('projectsTable').innerHTML =
+                `<div class="empty">Failed to load projects (HTTP ${resp.status})</div>`;
+            return;
+        }
+        projects = await resp.json();
+        renderTable();
+    }
+
+    function renderTable() {
+        const el = document.getElementById('projectsTable');
+        if (projects.length === 0) {
+            el.innerHTML = '<div class="empty">No projects yet — add your first one below.</div>';
+            return;
+        }
+        const rows = projects.map(p => `
+            <tr>
+                <td class="project-name">${escapeHtml(p.displayName)}</td>
+                <td class="project-slug">${escapeHtml(p.id)}</td>
+                <td>${escapeHtml(p.adoOrg)}/${escapeHtml(p.adoProject)}</td>
+                <td>${p.hasAdminSecret ? '<span class="badge">admin API on</span>' : ''}</td>
+                <td style="text-align:right">
+                    <button class="link" onclick="openEdit('${escapeHtml(p.id)}')">Edit</button>
+                    <button class="link" style="color:#f87171" onclick="askDelete('${escapeHtml(p.id)}')">Remove</button>
+                </td>
+            </tr>`);
+        el.innerHTML = `
+            <table>
+                <thead>
+                    <tr>
+                        <th>Display name</th><th>Id</th><th>ADO org/project</th><th></th><th></th>
+                    </tr>
+                </thead>
+                <tbody>${rows.join('')}</tbody>
+            </table>`;
+    }
+
+    // ---- Add / edit ----
+    document.getElementById('addProjectBtn').onclick = () => openAdd();
+    document.getElementById('patHelpLink').onclick = e => {
+        e.preventDefault();
+        const h = document.getElementById('patHelp');
+        h.style.display = h.style.display === 'none' ? 'block' : 'none';
+    };
+
+    function openAdd() {
+        editingId = null;
+        document.getElementById('dialogTitle').textContent = 'Add project';
+        document.getElementById('projectForm').reset();
+        document.getElementById('fld-id').readOnly = false;
+        document.getElementById('fld-pat').required = true;
+        document.getElementById('fld-pat').placeholder = 'Required';
+        document.getElementById('dialogStatus').innerHTML = '';
+        document.getElementById('projectDialog').showModal();
+    }
+
+    function openEdit(id) {
+        const p = projects.find(x => x.id === id);
+        if (!p) return;
+        editingId = id;
+        document.getElementById('dialogTitle').textContent = `Edit ${p.displayName}`;
+        document.getElementById('fld-id').value = p.id;
+        document.getElementById('fld-id').readOnly = true;
+        document.getElementById('fld-displayName').value = p.displayName;
+        document.getElementById('fld-adoOrg').value = p.adoOrg;
+        document.getElementById('fld-adoProject').value = p.adoProject;
+        document.getElementById('fld-pat').value = '';
+        document.getElementById('fld-pat').required = false;
+        document.getElementById('fld-pat').placeholder = 'Leave blank to keep existing';
+        document.getElementById('fld-adminSecret').value = '';
+        document.getElementById('fld-adminSecret').placeholder = p.hasAdminSecret
+            ? 'Currently set — leave blank to keep, empty string to disable'
+            : 'Leave blank to keep admin API disabled';
+        document.getElementById('dialogStatus').innerHTML = '';
+        document.getElementById('projectDialog').showModal();
+    }
+
+    function closeDialog() {
+        document.getElementById('projectDialog').close();
+    }
+
+    document.getElementById('projectForm').onsubmit = async (e) => {
+        e.preventDefault();
+        const body = {
+            id: document.getElementById('fld-id').value.trim(),
+            displayName: document.getElementById('fld-displayName').value.trim(),
+            adoOrg: document.getElementById('fld-adoOrg').value.trim(),
+            adoProject: document.getElementById('fld-adoProject').value.trim(),
+        };
+        const pat = document.getElementById('fld-pat').value.trim();
+        const adminSecret = document.getElementById('fld-adminSecret').value;
+        if (pat) body.pat = pat;
+        if (adminSecret !== undefined && adminSecret !== '') body.adminSecret = adminSecret;
+        // (empty adminSecret string is only meaningful on edit — signals "disable")
+        if (editingId && document.getElementById('fld-adminSecret').value === '' &&
+            projects.find(p => p.id === editingId)?.hasAdminSecret) {
+            // Ambiguous UX: leaving blank on edit KEEPS existing; user must interact explicitly to disable.
+            // We omit adminSecret so backend leaves it alone.
+        }
+
+        const status = document.getElementById('dialogStatus');
+        const btn = document.getElementById('saveBtn');
+        btn.disabled = true;
+        status.innerHTML = '<span class="info">Validating PAT against ADO...</span>';
+        try {
+            const url = editingId ? `/api/projects/${encodeURIComponent(editingId)}` : '/api/projects';
+            const method = editingId ? 'PUT' : 'POST';
+            const resp = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            if (!resp.ok) {
+                const err = await resp.json().catch(() => ({}));
+                throw new Error(err.error || `HTTP ${resp.status}`);
+            }
+            status.innerHTML = '<span class="ok">✓ Saved</span>';
+            await refreshProjects();
+            setTimeout(closeDialog, 600);
+        } catch (err) {
+            status.innerHTML = `<span class="err">${escapeHtml(err.message)}</span>`;
+        } finally {
+            btn.disabled = false;
+        }
+    };
+
+    // ---- Delete ----
+    let deleteTarget = null;
+    function askDelete(id) {
+        const p = projects.find(x => x.id === id);
+        if (!p) return;
+        deleteTarget = id;
+        document.getElementById('deleteTarget').innerHTML =
+            `You're about to remove <strong>${escapeHtml(p.displayName)}</strong> (${escapeHtml(p.id)}).`;
+        document.getElementById('deleteDialog').showModal();
+    }
+    document.getElementById('confirmDeleteBtn').onclick = async () => {
+        if (!deleteTarget) return;
+        const btn = document.getElementById('confirmDeleteBtn');
+        btn.disabled = true;
+        try {
+            const resp = await fetch(`/api/projects/${encodeURIComponent(deleteTarget)}`, { method: 'DELETE' });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            document.getElementById('deleteDialog').close();
+            await refreshProjects();
+        } catch (err) {
+            alert('Delete failed: ' + err.message);
+        } finally {
+            btn.disabled = false;
+            deleteTarget = null;
+        }
+    };
+
+    function escapeHtml(s) {
+        return String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+</script>
+</body>
+</html>

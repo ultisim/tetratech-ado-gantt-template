@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gantt & Timeline</title>
-    <script src="/config.js"></script>
     <style>
         * {
             margin: 0;
@@ -96,6 +95,26 @@
             background: var(--primary);
             color: white;
             border-color: var(--primary);
+        }
+
+        /* User badge (top-right) */
+        .user-badge {
+            color: #94a3b8;
+            font-size: 12px;
+            padding: 6px 10px;
+            margin-right: 8px;
+        }
+        .user-badge.admin::after {
+            content: 'admin';
+            background: rgba(96, 165, 250, 0.2);
+            color: #60a5fa;
+            font-size: 10px;
+            padding: 1px 6px;
+            border-radius: 8px;
+            margin-left: 6px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         /* Sprint dropdown */
@@ -968,6 +987,12 @@
             </svg>
             <h1 id="pageTitle">Loading — Gantt</h1>
             <nav class="nav-menu">
+                <div class="sprint-dropdown">
+                    <button class="nav-link sprint-dropdown-btn" onclick="toggleProjectDropdown(event)" id="projectDropdownBtn">Project ▾</button>
+                    <div class="sprint-dropdown-menu" id="projectDropdownMenu">
+                        <!-- populated by initMultiProject -->
+                    </div>
+                </div>
                 <a href="index.html" class="nav-link active">Schedule</a>
                 <div class="sprint-dropdown">
                     <button class="nav-link sprint-dropdown-btn" onclick="toggleSprintDropdown(event)">Sprints ▾</button>
@@ -976,10 +1001,12 @@
                     </div>
                 </div>
                 <a href="#" id="adoLink" target="_blank" rel="noopener" class="nav-link">Open in Azure DevOps ↗</a>
+                <a href="/setup.html" class="nav-link" id="setupLink" style="display:none">⚙ Manage projects</a>
             </nav>
         </div>
         <div class="header-right">
-            <!-- Auth removed: public read-only dashboard -->
+            <span id="userBadge" class="user-badge"></span>
+            <a href="/.auth/logout" class="nav-link" id="signOutLink" style="display:none">Sign out</a>
         </div>
     </header>
 
@@ -1071,9 +1098,7 @@
         <div class="loading-spinner"></div>
     </div>
 
-    <!-- Auth scripts -->
-    <script src="js/config.js"></script>
-    <!-- Auth removed: this is a public read-only dashboard -->
+    <!-- Auth is handled by Static Web Apps built-in Entra ID (see staticwebapp.config.json) -->
 
     <script>
         // =============================================================================
@@ -1097,15 +1122,31 @@
             'Documentation': 'phase-4'
         };
 
-        // API URLs
-        const TASKS_API_URL = '/api/tasks';
+        // =============================================================================
+        // MULTI-PROJECT STATE
+        // =============================================================================
+        // Populated by initMultiProject() on load. currentProjectId gates every API call.
+        let currentProjectId = null;
+        let currentProjectRecord = null;
+        let availableProjects = [];
+        let currentUser = null;
+
+        function tasksUrl(refresh = false) {
+            const q = refresh ? '?refresh=1' : '';
+            return `/api/projects/${encodeURIComponent(currentProjectId)}/tasks${q}`;
+        }
+        function sprintUrl(sprintNum, refresh = false) {
+            const q = refresh ? '?refresh=1' : '';
+            return `/api/projects/${encodeURIComponent(currentProjectId)}/sprint/${sprintNum}${q}`;
+        }
 
         // =============================================================================
         // LOAD DATA FROM API
         // =============================================================================
         async function loadTasksFromDatabase() {
+            if (!currentProjectId) return; // nothing to load until a project is picked
             try {
-                const response = await fetch(TASKS_API_URL);
+                const response = await fetch(tasksUrl());
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
@@ -1892,7 +1933,7 @@ h2 { color: #475569; font-size: 11pt; font-weight: 700; text-transform: uppercas
 </style>
 </head>
 <body>
-<h1>${(window.__CONFIG__?.projectDisplayName) || 'Project'} — Sprint ${sprintNum} Review</h1>
+<h1>${currentProjectRecord?.displayName || 'Project'} — Sprint ${sprintNum} Review</h1>
 <div class="subline">${dates ? dates + ' &nbsp;•&nbsp; ' : ''}${epics.length} Epic${epics.length === 1 ? '' : 's'} &nbsp;•&nbsp; ${userStories.length} User Stor${userStories.length === 1 ? 'y' : 'ies'}</div>
 
 <h2>Epics</h2>
@@ -2019,22 +2060,122 @@ ${itemTable(userStories)}
 
         // Initialize on page load
         document.addEventListener('DOMContentLoaded', async () => {
-            // Apply runtime config from /config.js (written by `npm run setup`)
-            const cfg = window.__CONFIG__ || {};
-            const displayName = cfg.projectDisplayName || 'Project';
-            document.title = `${displayName} — Gantt & Timeline`;
-            const titleEl = document.getElementById('pageTitle');
-            if (titleEl) titleEl.textContent = `${displayName} — Gantt`;
-            const adoLink = document.getElementById('adoLink');
-            if (adoLink && cfg.adoProjectUrl) adoLink.href = cfg.adoProjectUrl;
-
-            // Hide loading overlay
+            document.getElementById('loadingOverlay').classList.remove('hidden');
+            await initMultiProject();
             document.getElementById('loadingOverlay').classList.add('hidden');
+        });
 
-            // Load tasks and render default Gantt view
+        // -----------------------------------------------------------------
+        // MULTI-PROJECT BOOTSTRAP
+        // -----------------------------------------------------------------
+        async function initMultiProject() {
+            // 1. Who are we? (SWA principal via /api/me)
+            currentUser = await fetch('/api/me').then(r => r.ok ? r.json() : { authenticated: false });
+            if (!currentUser.authenticated) {
+                // Not signed in — send to Entra ID sign-in and come back here.
+                window.location.href = `/.auth/login/aad?post_login_redirect_uri=${encodeURIComponent(location.pathname)}`;
+                return;
+            }
+
+            // Update the user badge in the header
+            const badge = document.getElementById('userBadge');
+            if (badge) {
+                badge.textContent = currentUser.name || currentUser.id;
+                if (currentUser.isAdmin) badge.classList.add('admin');
+            }
+            const signOut = document.getElementById('signOutLink');
+            if (signOut) signOut.style.display = '';
+            const setupLink = document.getElementById('setupLink');
+            if (setupLink && currentUser.isAdmin) setupLink.style.display = '';
+
+            // 2. What projects can we see?
+            const projResp = await fetch('/api/projects');
+            if (!projResp.ok) {
+                renderNoProjects(`Failed to load projects: HTTP ${projResp.status}`);
+                return;
+            }
+            availableProjects = await projResp.json();
+
+            if (availableProjects.length === 0) {
+                renderNoProjects();
+                return;
+            }
+
+            // 3. Pick a project — URL ?project=X wins, else last-viewed, else first.
+            const urlParam = new URLSearchParams(location.search).get('project');
+            const lastViewed = localStorage.getItem('lastProjectId');
+            currentProjectId =
+                (urlParam && availableProjects.some(p => p.id === urlParam) && urlParam) ||
+                (lastViewed && availableProjects.some(p => p.id === lastViewed) && lastViewed) ||
+                availableProjects[0].id;
+            currentProjectRecord = availableProjects.find(p => p.id === currentProjectId);
+            localStorage.setItem('lastProjectId', currentProjectId);
+
+            renderProjectDropdown();
+            applyProjectBranding();
             await loadTasksFromDatabase();
             initGantt();
-        });
+        }
+
+        function renderProjectDropdown() {
+            const menu = document.getElementById('projectDropdownMenu');
+            if (!menu) return;
+            const rows = availableProjects.map(p => {
+                const isCurrent = p.id === currentProjectId ? ' style="color:#60a5fa;font-weight:600"' : '';
+                return `<a href="#" onclick="switchProject('${p.id}'); return false;"${isCurrent}>${escapeAttr(p.displayName)}</a>`;
+            });
+            if (currentUser?.isAdmin) {
+                rows.push(`<a href="/setup.html" style="border-top:1px solid #334155;color:#94a3b8">+ Add / manage projects</a>`);
+            }
+            menu.innerHTML = rows.join('');
+            const btn = document.getElementById('projectDropdownBtn');
+            if (btn && currentProjectRecord) {
+                btn.textContent = `${currentProjectRecord.displayName} ▾`;
+            }
+        }
+
+        function switchProject(id) {
+            if (id === currentProjectId) return;
+            localStorage.setItem('lastProjectId', id);
+            const url = new URL(location.href);
+            url.searchParams.set('project', id);
+            location.href = url.toString(); // full reload — simpler than mutating global state mid-render
+        }
+
+        function applyProjectBranding() {
+            const name = currentProjectRecord?.displayName || 'Project';
+            document.title = `${name} — Gantt & Timeline`;
+            const titleEl = document.getElementById('pageTitle');
+            if (titleEl) titleEl.textContent = `${name} — Gantt`;
+            const adoLink = document.getElementById('adoLink');
+            if (adoLink && currentProjectRecord) {
+                adoLink.href = `https://dev.azure.com/${encodeURIComponent(currentProjectRecord.adoOrg)}/${encodeURIComponent(currentProjectRecord.adoProject)}`;
+            }
+        }
+
+        function renderNoProjects(errMsg) {
+            const box = document.querySelector('.content-area');
+            if (!box) return;
+            const isAdmin = currentUser?.isAdmin;
+            box.innerHTML = `
+                <div style="max-width:600px;margin:60px auto;padding:32px;background:#1e293b;border:1px solid #334155;border-radius:12px;text-align:center">
+                    <h2 style="color:#f8fafc;margin-bottom:16px">${errMsg ? '⚠️ Error' : '🎉 Welcome!'}</h2>
+                    <p style="color:#94a3b8;line-height:1.6;margin-bottom:24px">
+                        ${errMsg || 'No projects have been added yet. ' + (isAdmin ? 'Add your first one to get started.' : 'Ask your admin to add a project you can access.')}
+                    </p>
+                    ${isAdmin ? '<a href="/setup.html" class="nav-link active" style="display:inline-block;padding:10px 20px">Add first project</a>' : ''}
+                </div>`;
+        }
+
+        function toggleProjectDropdown(e) {
+            e.stopPropagation();
+            document.getElementById('projectDropdownMenu').classList.toggle('open');
+            document.getElementById('sprintDropdownMenu').classList.remove('open');
+        }
+
+        function escapeAttr(s) {
+            return String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
 
         // Keyboard navigation
         document.addEventListener('keydown', (e) => {
@@ -2329,8 +2470,6 @@ ${itemTable(userStories)}
     </style>
 
     <script>
-        const SPRINT_API_BASE = '/api/sprint';
-
         function toggleSprintDropdown(e) {
             e.stopPropagation();
             document.getElementById('sprintDropdownMenu').classList.toggle('open');
@@ -2339,7 +2478,10 @@ ${itemTable(userStories)}
             document.getElementById('sprintDropdownMenu').classList.remove('open');
         }
         // Close dropdown when clicking outside
-        document.addEventListener('click', () => closeSprintDropdown());
+        document.addEventListener('click', () => {
+            closeSprintDropdown();
+            document.getElementById('projectDropdownMenu')?.classList.remove('open');
+        });
 
         function openSprintModal(sprintNum) {
             const overlay = document.getElementById('sprintModal');
@@ -2356,7 +2498,7 @@ ${itemTable(userStories)}
 
         async function loadSprintData(sprintNum) {
             try {
-                const resp = await fetch(`${SPRINT_API_BASE}/${sprintNum}`);
+                const resp = await fetch(sprintUrl(sprintNum));
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                 const data = await resp.json();
                 renderSprintTable(data, sprintNum);
